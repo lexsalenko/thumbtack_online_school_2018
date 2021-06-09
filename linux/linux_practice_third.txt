@@ -1,0 +1,140 @@
+mkdir linux_practice_third
+
+Task1 /закончено
+Сгенерировать набор файлов вида
+YYYY-mm-dd.csv
+по каждому дню за год с содержимым такого вида (числовые поля заполнить случайными  значениями):
+cite        ; country ; date       ; views ; clicks
+www.abc.com ; USA     ; 2017-01-01 ; 1000  ; 3
+www.cba.com ; France  ; 2017-01-01 ; 750   ; 0
+
+Решение
+touch 
+chmod +x ./task1-bash
+
+#!/bin/bash
+mkdir /home/user1/linux_ex/linux_practice_third/task1-dir/task1-res/
+for (( a = 1; a < 365; a++ ))
+do
+mydir="/home/user1/linux_ex/linux_practice_third/task1-dir/task1-res/"
+name="2019-01-01+${a}day"
+format=".csv"
+file="$mydir$name$format"
+echo -e "cite        ; country ; date       ; views ; clicks\nwww.abc.com ; USA     ; 2017-01-01 ; $RANDOM ; $RANDOM\nwww.cba.com ; France  ; 2017-01-01 ; $RANDOM ; $RANDOM" > "$file"
+done 
+
+Task2 /незакончено
+В условиях предыдущей задачи 
+Проверить, что все файлы за год присутствуют и нет лишних.
+Во всех исходных файлах переставить дату на первое место и привести к виду dd/mm/YYYY:
+date       ; cite        ; country ; views ; clicks
+01/01/2017 ; www.abc.com ; usa     ; 1000  ; 3
+01/01/2017 ; www.cba.com ; France  ; 750   ; 0
+
+Решение
+#!/bin/bash
+ls -f . | wc -l
+
+????????????????????????????????
+
+
+
+Task3 /закончено
+Сформировать набор файлов monday, tuesday.csv и т.д. куда вывести содержимое всех исходных файлов отдельно по каждому дню недели. Строку заголовка вывести один раз. Исходные файлы удалить.
+
+Решение
+
+#!/bin/bash
+rm -r /home/user1/linux_ex/linux_practice_third/task3-dir/task3-res
+
+mkdir /home/user1/linux_ex/linux_practice_third/task3-dir/task3-res
+touch task3-res/monday.csv
+touch task3-res/tuesday.csv
+touch task3-res/wednesday.csv
+touch task3-res/thursday.csv
+touch task3-res/friday.csv
+touch task3-res/saturday.csv
+touch task3-res/sunday.csv
+
+for filename in $(find /home/user1/linux_ex/linux_practice_third/task1-dir/task1-res -type f)
+do
+ echo $filename > fname.txt
+ daynum=$(sed 's/.*+\|day.*//g' fname.txt)
+ let "c=daynum%7"
+
+ if [ $c == 0 ] 
+ then 
+     cat $filename >> task3-res/sunday.csv
+     echo -en "\n" >> task3-res/sunday.csv
+ elif [ $c == 1 ] 
+ then 
+     cat $filename >> task3-res/monday.csv
+     echo -en "\n" >> task3-res/monday.csv
+ elif [ $c == 2 ] 
+ then 
+     cat $filename >> task3-res/tuesday.csv
+     echo -en "\n" >> task3-res/tuesday.csv
+ elif [ $c == 3 ] 
+ then 
+     cat $filename >> task3-res/wednesday.csv
+     echo -en "\n" >> task3-res/wednesday.csv
+ elif [ $c == 4 ] 
+ then 
+     cat $filename >> task3-res/thursday.csv
+     echo -en "\n" >> task3-res/thursday.csv
+ elif [ $c == 5 ] 
+ then 
+     cat $filename >> task3-res/friday.csv
+     echo -en "\n" >> task3-res/friday.csv
+ else 
+     cat $filename >> task3-res/saturday.csv
+     echo -en "\n" >> task3-res/saturday.csv
+ fi
+
+done
+
+
+Task4 /закончено
+Вывести в отдельный файл содержимое всех файлов *.java из своего репозитория (локальный проект заочной школы или любой другой, где есть java классы), 
+в которых встречается ArrayList. 
+Один из способов реализации: цикл с grep в условии.
+
+Решение
+#!/bin/bash
+find /opt/WebHelloWorld -name *.java -exec grep {} -e 'ArrayList' \; -exec cat {} > task4-res.txt \;
+
+
+Task5 /закончено
+Вывести содержимое каталога /etc (каждая строка с полным путем) затем заменить первые вхождения ‘/’ на “C:\”, остальные на ‘\’
+
+Решение
+#!/bin/bash
+find /etc -type d > etc-files.txt
+sed -i 's!/!C:\!' etc-files.txt
+sed -i 's!/!\!g' etc-files.txt
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

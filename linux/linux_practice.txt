@@ -1,0 +1,348 @@
+Задача 1
+Формулировка задачи: 
+	В своём домашнем каталоге создать подкаталог linux_ex и зайти в него.
+Решение:
+	mkdir linux_ex
+	cd linux_ex
+Краткий комментарий
+	mkdir <foldername> - создает каталог с именем <foldername> в домашней папке
+	cd~  команда терминала для перемещения по каталогам
+
+
+Задача 2
+Формулировка задачи: 
+	Создать файл hello.txt  с текстом “Hello world”.
+	Добавить в этот файл (разделяя пустыми строками)
+	свои имя и фамилию, 
+	текущую дату 
+	имя пользователя
+	содержимое домашнего каталога (нерекурсивно, список имен файлов, включая скрытые)
+	содержимое корневого каталога (нерекурсивно)
+	содержимое каталога /etc
+	только файлы в каталоге /etc  
+	только подкаталоги в каталоге /etc (нерекурсивно)
+	содержимое файла /etc/passwd
+	первый столбец файла /etc/passwd (список юзеров)
+	содержимое файла /etc/group
+	первый столбец файла /etc/group (список групп)
+	первую и последнюю строки файла /etc/group
+	Вывести hello.txt с прокруткой
+	Разбить hello.txt на файлы размером 1к, затем собрать обратно.
+	Заменить в hello.txt ‘/’ на ‘\’
+Решение:
+	  Создать файл hello.txt  с текстом “Hello world”.
+	  echo "Hello world" > hello.txt
+	  echo -en "\n" >> hello.txt
+	  
+	  свои имя и фамилию
+	  echo "Salenko Alexandr" >> hello.txt
+	  echo -en "\n" >> hello.txt
+
+	  Дата
+	  currentDate="$(date +"%y-%m-%d %T") $@"
+	  echo $currentDate >> hello.txt
+	  echo -en "\n" >> hello.txt
+
+	  Имя пользователя
+ 	  echo $USER >> hello.txt
+  	  echo -en "\n" >> hello.txt
+
+	  содержимое домашнего каталога
+	  echo $(ls -a /home) >> hello.txt
+	  echo -en "\n" >> hello.txt
+
+	  содержимое корневого каталога
+	  echo $(ls -a /) >> hello.txt
+	  echo -en "\n" >> hello.txt
+	  
+	  содержимое каталога /etc
+	  echo $(ls -a /etc) >> hello.txt
+	  echo -en "\n" >> hello.txt
+
+	  только файлы в каталоге /etc
+	  find /etc -type f >> hello.txt
+  	  echo -en "\n" >> hello.txt
+
+	  только подкаталоги в каталоге /etc (нерекурсивно)
+	  echo $(ls -d -1 /etc/*/) >> hello.txt
+	  echo -en "\n" >> hello.txt
+
+	  содержимое файла /etc/passwd
+	  echo $(ls /etc/passwd) >> hello.txt
+	  echo -en "\n" >> hello.txt
+
+	  первый столбец файла /etc/passwd (список юзеров)
+	  echo $(cut -d: -f1 /etc/passwd) >> hello.txt
+	  echo -en "\n" >> hello.txt
+
+	  содержимое файла /etc/group
+	  echo $(ls /etc/group) >> hello.txt
+	  echo -en "\n" >> hello.txt
+
+	  первый столбец файла /etc/group (список групп)
+	  echo $(cut -d: -f1 /etc/group) >> hello.txt
+	  echo -en "\n" >> hello.txt
+
+	  первую и последнюю строки файла /etc/group
+	  echo $(sed -e 1b -e '$!d' /etc/group) >> hello.txt
+	  echo -en "\n" >> hello.txt
+
+	  Вывести hello.txt с прокруткой
+	  
+	  cat hello.txt | less
+	  less hello.txt
+
+	  Разбить hello.txt на файлы размером 1к, затем собрать обратно.
+	  разрезаем
+	  split -b 1k hello.txt
+
+	  склеиваем	
+  	  cat x** > hello.txt
+
+	  Заменить в hello.txt ‘/’ на ‘\’
+	  sed -i '/[//]/\\/g' hello.txt >> hello.txt
+
+Краткий комментарий
+
+
+Задача 3
+Формулировка задачи: 
+	1) Скопировать /var/log в текущий каталог (кроме файлов без доступа) с сохранением времени модификации. 
+	В текущем каталоге должен появиться ./var/log
+	
+	Для полученной копии
+	2) вывести объем занимаемого места
+	3) вывести все файлы, начинающиеся на ‘a’ (не каталоги)
+	4) удалить все файлы, начинающиеся на ‘a’ (не каталоги). Как убедиться, что выполнено правильно?
+	5) вывести все файлы со временем последней модификации больше 5 дней;
+	6) вывести все файлы со временем последней модификации меньше 5 дней;
+	7) создать каталог archive и переместить туда файлы (не каталоги) со временем модификации больше 5 дней.  
+
+Решение:
+	1) cp -R -p /var/log /home/user1/linux_ex
+	2) du -sh log
+	3) find /home/user1/linux_ex/log -type f -iname 'a*'
+	4) find /home/user1/linux_ex/log -type f -iname 'a*' -exec rm {} \;
+	5) find /home/user1/linux_ex/log/ -mtime +5
+	6) find /home/user1/linux_ex/log  -mtime -5
+	7) find /home/user1/linux_ex/log/ -mtime +5 -exec mv {} /home/user1/linux_ex/archive \;
+	8) 
+	* Создать текстовый файл с каким либо русским текстом. 
+	Написать команду для его транслитерации.
+	> rustext.txt
+	sed -i "y/абвгдезийклмнопрстуфхъьы/abvgdezijklmnoprstufx\"'y/;s/ж/zh/g;s/ш/sh/g;s/ч/ch/g;s/щ/shh/g;s/ю/yu/g;s/я/ya/g;s/э/eh/g" r_text.txt >> r_text.txt
+Краткий комментарий
+	
+Задача 4
+Формулировка задачи: 
+	1) Найти все файлы (рекурсивно) с расширением jar в каталогах /opt и /usr.
+	2) Найти все каталоги, содержащие файлы с расширением jar в каталогах /opt и /usr, вывести по одному разу.
+
+Решение:
+	1) find /usr -iname '*.jar'
+	   find /opt -iname '*.jar'
+	2) find /usr -name *.jar -type d   ???????
+	   find /opt -name *.jar -type d   ???????
+
+Краткий комментарий
+	
+Задача 5
+Формулировка задачи: 
+	Найти все файлы с расширением java, созданные месяц назад плюс-минус одна неделя.
+Решение:
+	sudo find / -type f -name '*.java' -mtime +30
+Краткий комментарий
+	
+Задача 6
+Формулировка задачи: 
+	В двух заданных каталогах должен быть одинаковый набор файлов. 
+	Нужно в этом убедиться, т.е. проверить, что совпадают множества файлов, имена и содержимое.
+
+Решение:
+	diff -r path_dir1 path_dir2
+	diff <(cd path_dir1 && find . | sort) <(cd path_dir2 && find . | sort)
+Краткий комментарий
+
+Задача 7
+Формулировка задачи: 
+	1) Создать с помощью touch несколько файлов 1.MP3, 2.MP3… 
+	2) Написать команду для группового переименования расширений в нижний регистр, 
+	т.е. должно получиться 1.mp3, 2.mp3...
+Решение:
+	1) touch {1..3}.MP3
+	2) rename 's/\.MP3/\.mp3/' *.MP3
+Краткий комментарий
+
+Задача 8
+Формулировка задачи: 
+	Установить вручную (без apt-get) java 8 и maven последней версии . 
+	Добавить путь запуска в переменную PATH, создать переменную M2_HOME. 
+	Выполнить сборку java проекта.
+
+Решение:
+	1) переходим по ссылке http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html
+	скачиваем нужный нам архив
+ 	2) jdk
+	cd /opt
+	sudo tar xzvf /home/Загрузки/jdk-8u241-linux-x64.tar.gz
+	sudo update-alternatives --install "/usr/bin/java" "java" "/opt/jdk1.8.0_241/bin/java" 1
+	sudo update-alternatives --set java /opt/jdk1.8.0_241/bin/java
+	sudo update-alternatives --install "/usr/bin/javac" "javac" "/opt/jdk1.8.0_241/bin/javac" 1
+	sudo update-alternatives --set javac /opt/jdk1.8.0_241/bin/javac
+	sudo nano /etc/bash.bashrc
+
+	переходим в редактор и вставляем 
+	export JAVA_HOME=/opt/jdk1.8.0_65
+	export M2_HOME=/opt/apache-maven-3.3.9
+	export PATH=$JAVA_HOME/bin:$M2_HOME/bin:$PATH
+	Ctrl + O, Enter, Ctrl + X
+	
+	3) maven
+	переходим по ссылке https://maven.apache.org/download.cgi
+	скачиваем нужный нам архив	
+	cd /opt
+	sudo tar -xvzf ~/Downloads/apache-maven-3.6.3-bin.tar.gz
+	sudo nano /etc/environment
+	Добавляем в конец файла 
+	JAVA_HOME=/opt/jdk1.8.0_65"
+	M2_HOME=/opt/apache-maven-3.3.9"
+	
+	Далее вводим в консоли
+	sudo update-alternatives --install "/usr/bin/mvn" "mvn" "/opt/apache-maven-3.6.3/bin/mvn" 0
+	sudo update-alternatives --set mvn /opt/apache-maven-3.6.3/bin/mvn
+	Для проверки установленной версии
+	mvn --version 
+	java -version
+Краткий комментарий
+
+Задача 9
+Формулировка задачи: 
+	1) Проанализировать загрузку процессора, объем памяти. 
+	2) Вывести информацию по использованию места в файловой системе. 
+	3) Найти самые большие каталоги (рекурсивно до уровня 2).
+
+Решение:
+	1) 
+	Количество процессоров nproc --all
+	uptime
+	Утилита uptime сообщает следующие данные:
+	системное время в момент выполнения команды;
+ 	как долго работает сервер;
+	сколько подключений пользователей обслуживает машина;
+	средняя загрузка процессора за последние одну, пять и пятнадцать минут.
+	top
+	утилита top доступна как в Linux, так и в Unix-системах, 
+	но помимо отображения средних значений нагрузки для заданных временных интервалов 
+	она предоставляет информацию о потреблении ЦП в реальном времени, 
+	а также другие полезные показатели производительности.
+	Если uptime запускается и сразу завершает работу, top работает на переднем плане и регулярно обновляется.
+	2)
+	du -a | sort -n -r | head -n 5 находим самые большие каталоги
+	find -type f -exec du -Sh {} + | sort -rh | head -n 5 находим самые большие файлы
+
+Краткий комментарий
+
+Задача 10
+Формулировка задачи: 
+	1) Создать двух юзеров (напр., ivanov, petrov)
+	2) создать каталог /shared 
+	3) дать полный доступ этим двум юзерам. У остальных не должно быть доступа даже на чтение.
+
+Решение:
+	1) 
+	sudo adduser ivanov
+	sudo adduser petrov
+	2) mkdir shared
+	3) 
+	sudo groupadd pi_group
+	sudo usermod -aG pi_group ivanov
+	sudo chgrp pi_group shared
+	chmod g+rw shared
+	sudo gpasswd -a petrov pi_group
+	chmod -R 770 shared
+Краткий комментарий
+
+Задача 11
+Формулировка задачи: 
+	1) Установить MySQL и создать базу ttschool
+	2) заполнить данными. 
+	3) Выполнить дамп базы в файл посредством pipe
+	4) затем восстановить из файла.
+Решение:
+	1) 
+	sudo apt-get update
+	sudo apt-get upgrade
+	sudo apt-get install mysql-server
+	sudo mysql_secure_installation
+	CREATE USER 'test'@'localhost' IDENTIFIED BY 'test';
+	GRANT ALL PRIVILEGES ON *.* TO 'test'@'localhost' WITH GRANT OPTION;
+	CREATE DATABASE ttschool;
+	GRANT ALL ON ttschool.* TO 'test' IDENTIFIED BY 'test';
+	QUIT;
+	mysql -u test -p ttschool
+	USE ttschool;
+
+Создаем таблицы
+
+CREATE TABLE school (
+    -> id INT(11) NOT NULL AUTO_INCREMENT,
+    -> `name` VARCHAR(50) NOT NULL,
+    ->     `year` INT(11) NOT NULL,
+    ->     UNIQUE KEY name_year (`name`, `year`),
+    -> PRIMARY KEY (id)
+    -> ) ENGINE=INNODB DEFAULT CHARSET=utf8;
+Query OK, 0 rows affected (0.03 sec)
+
+mysql> CREATE TABLE `group` (
+    -> id INT(11) NOT NULL AUTO_INCREMENT,
+    -> `name` VARCHAR(50) NOT NULL,
+    ->     room VARCHAR(50) NOT NULL,
+    ->     schoolid INT(11) NOT NULL,
+    ->     PRIMARY KEY (id),
+    ->     FOREIGN KEY (schoolid) REFERENCES school (id) ON DELETE CASCADE
+    -> ) ENGINE=INNODB DEFAULT CHARSET=utf8;
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> CREATE TABLE trainee (
+    -> id INT(11) NOT NULL AUTO_INCREMENT,
+    -> firstName VARCHAR(50) NOT NULL,
+    -> lastName VARCHAR(50) NOT NULL,
+    ->     rating INT(5) NOT NULL,
+    ->     groupid INT(11),
+    ->     PRIMARY KEY (id),
+    ->     FOREIGN KEY (`groupid`) REFERENCES `group` (id) ON DELETE CASCADE
+    -> ) ENGINE=INNODB DEFAULT CHARSET=utf8;
+Query OK, 0 rows affected (0.05 sec)
+
+mysql> CREATE TABLE `subject` (
+    -> id INT(11) NOT NULL AUTO_INCREMENT,
+    -> `name` VARCHAR(50) NOT NULL,
+    -> PRIMARY KEY (id)
+    -> ) ENGINE=INNODB DEFAULT CHARSET=utf8;
+Query OK, 0 rows affected (0.02 sec)
+
+mysql> CREATE TABLE group_subject (
+    -> id INT (11) NOT NULL AUTO_INCREMENT,
+    ->     groupid INT (11),
+    ->     subjectid INT (11),
+    ->     PRIMARY KEY (id),
+    ->     FOREIGN KEY (groupid) REFERENCES `group` (id) ON DELETE CASCADE,
+    ->     FOREIGN KEY (subjectid) REFERENCES `subject` (id) ON DELETE CASCADE
+    -> ) ENGINE=INNODB DEFAULT CHARSET=utf8;
+
+проверяем таблицы
+ SHOW tables;
+
+	2) Заполнение данными
+	INSERT INTO school (id, name, year) VALUES (0, "Backend", 2020);
+	INSERT INTO school (id, name, year) VALUES (0, "Frontend", 2020);
+	SELECT * FROM school;
+
+	3) Дамп базы данных
+	Посмотрим какие БД существуют:
+	mysqlshow -u test -p
+	Выгрузка базы:
+	mysqldump -u test -p ttschool > /home/user1/linux_ex/dump_database.sql
+	Заливаем базу обратно:
+	mysql -u test -p ttschool < /home/user1/linux_ex/dump_database.sql
+Краткий комментарий

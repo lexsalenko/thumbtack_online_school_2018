@@ -1,0 +1,568 @@
+SSH
+Задание
+1)Запустить две виртуальные машины, созданные ранее (будем называть их WORKSTATION и SERVER), 
+зайти по ssh из WORKSTATION на SERVER. Сгенерировать пару ключей и настроить по ним доступ. 
+Приватный ключ защитить паролем. После настройки доступа по ключам отключите доступ по паролю.
+Эту часть задания можно считать выполненной, если у вас настроен доступ только по ключам.
+
+Решение
+1) ssh alexandr@192.168.56.103
+ 
+2) 
+вводим команду ssh-keygen и следуем указаниям мастера ssh-keygen
+создаем фразу пароль для защиты ключа
+ssh-copy-id alexandr@192.168.56.103 копирование ключа на удаленный сервер (SERVER)
+ssh username@remote_host авторизация по ключу
+
+запускаем sudo nano /etc/ssh/sshd_config
+меняем PasswordAuthentication yes на PasswordAuthentication no
+перезапускаем sshd сервис sudo systemctl restart ssh
+
+
+Установка сервиса на удаленной машине
+Задание
+1) Установить на сервере java. 
+2) Скопировать на SERVER приложение webHelloWorld (jar файл) и запустить. 
+3) Выполнить в двух вариантах, с помощью команды screen и в виде службы systemd. 
+4) Запустить journalctl для просмотра логов. 
+Эту часть задания можно считать выполненной, если по адресу http://127.0.0.1:4567/hello в браузере придет ответ, 
+а в логах journalctl будет информация о запросах
+Решение
+1) sudo apt install default-jdk
+   java -version
+	или
+   scp /home/user1/Загрузки/jdk-8u241-linux-x64.tar.gz alexandr@192.168.56.103:/home/alexandr/downloads
+	cd /opt
+	sudo tar xzvf /home/alexandr/downloads/jdk-8u241-linux-x64.tar.gz
+	sudo update-alternatives --install "/usr/bin/java" "java" "/opt/jdk1.8.0_241/bin/java" 1
+	sudo update-alternatives --set java /opt/jdk1.8.0_241/bin/java
+	sudo update-alternatives --install "/usr/bin/javac" "javac" "/opt/jdk1.8.0_241/bin/javac" 1
+	sudo update-alternatives --set javac /opt/jdk1.8.0_241/bin/javac
+	sudo nano /etc/bash.bashrc
+
+	переходим в редактор и вставляем 
+	export JAVA_HOME=/opt/jdk1.8.0_65
+	export M2_HOME=/opt/apache-maven-3.3.9
+	export PATH=$JAVA_HOME/bin:$M2_HOME/bin:$PATH
+	Ctrl + O, Enter, Ctrl + X
+2) скачиваем архив на основной системе и помещаем его в общую папку 
+на машине (workstation) вводим 
+sudo adduser user1 vboxsf
+cd /opt
+sudo tar xzvf /media/sf_Public/HelloWorldServer.tar.gz
+cd HelloWorldServer
+mvn install 
+scp /opt/WebHelloWorld/target/WebHelloWorld.jar alexandr@192.168.56.103:/home/alexandr/HelloWorldServer
+ssh alexandr@192.168.56.103
+cd /home/alexandr/WebHelloWorldServer
+java -jar WebHelloWorld.jar
+открываем браузер и вводим http://192.168.56.103:4567/hello
+3)
+screen
+??????????
+service
+cd /opt
+mkdir HelloWorldServer
+cd HelloWorldServer
+cp -r /home/alexandr/HelloWorldServer/WebHelloWorld.jar /opt/HelloWorldServer/
+sudo chmod 777 /opt/HelloWorldServer/WebHelloWorld.jar
+sudo vim /etc/systemd/system/helloworld.service
+режим редактирования
+
+[Unit]			
+Description=Helloworld service			
+[Service]			
+Type=simple			
+User=alexandr			
+ExecStart=/opt/jdk1.8.0_241/bin/java -jar /opt/HelloWorldServer/WebHelloWorld.jar			
+ExecStop=/bin/kill -15 $MAINPID
+			
+[Install]			
+WantedBy=multi-user.target
+
+для сохранения вводим :wq + Enter
+
+sudo systemctl daemon-reload
+sudo systemctl enable helloworld.service
+
+
+Проверяем: sudo systemctl status helloworld
+
+запуск
+sudo systemctl start helloworld.service
+
+в браузере вводим http://192.168.56.103:4567/hello получаем Hello World
+
+sudo journalctl -u helloworld
+
+
+СЕТЕВЫЕ УТИЛИТЫ
+Задание
+1) Запустить WebHelloWorld и проанализировать запросыы и ответы с помощью tcpdump и ngrep
+2) Установить web - сервер nginx (без Docker)
+3) 
+Решение
+1) настроил приложение, установив shh соединение с сервером, запустил приложение в виде сервиса
+ssh alexandr@192.168.56.103
+sudo systemctl status helloworld.service
+sudo systemctl start helloworld.service
+
+ввел: sudo ngrep -d eth1 port 4567 
+получил:
+interface: eth1 (192.168.56.0/255.255.255.0)
+filter: (ip or ip6) and ( port 4567 )
+####
+T 192.168.56.102:40720 -> 192.168.56.103:4567 [AP]
+  GET /hello HTTP/1.1..Host: 192.168.56.103:4567..User-Agent: Mozilla/5.0 (X1
+  1; Ubuntu; Linux x86_64; rv:66.0) Gecko/20100101 Firefox/66.0..Accept: text
+  /html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8..Accept-Languag
+  e: ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3..Accept-Encoding: gzip, deflate..Con
+  nection: keep-alive..Upgrade-Insecure-Requests: 1....                      
+##
+T 192.168.56.103:4567 -> 192.168.56.102:40720 [AP]
+  HTTP/1.1 200 OK..Date: Sun, 09 Feb 2020 07:49:36 GMT..Content-Type: text/ht
+  ml;charset=utf-8..Transfer-Encoding: chunked..Server: Jetty(9.4.z-SNAPSHOT)
+  ....B..Hello World                                                         
+##
+T 192.168.56.103:4567 -> 192.168.56.102:40720 [AP]
+  ..0....                                                                    
+##
+T 192.168.56.103:4567 -> 192.168.56.102:40720 [AP]
+  ..0....                                                                    
+##
+T 192.168.56.102:40720 -> 192.168.56.103:4567 [AP]
+  GET /favicon.ico HTTP/1.1..Host: 192.168.56.103:4567..User-Agent: Mozilla/5
+  .0 (X11; Ubuntu; Linux x86_64; rv:66.0) Gecko/20100101 Firefox/66.0..Accept
+  : image/webp,*/*..Accept-Language: ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3..Acc
+  ept-Encoding: gzip, deflate..Connection: keep-alive....                    
+##
+T 192.168.56.103:4567 -> 192.168.56.102:40720 [AP]
+  HTTP/1.1 404 Not Found..Date: Sun, 09 Feb 2020 07:49:37 GMT..Content-Type: 
+  text/html;charset=utf-8..Transfer-Encoding: chunked..Server: Jetty(9.4.z-SN
+  APSHOT)....30..<html><body><h2>404 Not found</h2></body></html>            
+#
+
+Значение:
+подключение через интерфейс eth1
+http запросы от браузера Firefox к 192.168.56.103 через порт 4567
+
+ввел: tcpdump -i enp0s8 port 4567
+получил:
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on eth1, link-type EN10MB (Ethernet), capture size 262144 bytes
+14:03:49.939711 IP 192.168.56.102.40814 > 192.168.56.103.4567: Flags [S], seq 2872306525, win 29200, options [mss 1460,sackOK,TS val 1301884 ecr 0,nop,wscale 7], length 0
+14:03:49.940059 IP 192.168.56.103.4567 > 192.168.56.102.40814: Flags [S.], seq 2173744173, ack 2872306526, win 28960, options [mss 1460,sackOK,TS val 1253878 ecr 1301884,nop,wscale 7], length 0
+14:03:49.940086 IP 192.168.56.102.40814 > 192.168.56.103.4567: Flags [.], ack 1, win 229, options [nop,nop,TS val 1301884 ecr 1253878], length 0
+14:03:49.940293 IP 192.168.56.102.40814 > 192.168.56.103.4567: Flags [P.], seq 1:380, ack 1, win 229, options [nop,nop,TS val 1301884 ecr 1253878], length 379
+14:03:49.940555 IP 192.168.56.103.4567 > 192.168.56.102.40814: Flags [.], ack 380, win 235, options [nop,nop,TS val 1253878 ecr 1301884], length 0
+14:03:49.947859 IP 192.168.56.103.4567 > 192.168.56.102.40814: Flags [P.], seq 1:169, ack 380, win 235, options [nop,nop,TS val 1253880 ecr 1301884], length 168
+14:03:49.947877 IP 192.168.56.102.40814 > 192.168.56.103.4567: Flags [.], ack 169, win 237, options [nop,nop,TS val 1301886 ecr 1253880], length 0
+14:03:59.969511 IP 192.168.56.102.40814 > 192.168.56.103.4567: Flags [.], ack 176, win 237, options [nop,nop,TS val 1304392 ecr 1253880], length 0
+14:03:59.969917 IP 192.168.56.103.4567 > 192.168.56.102.40814: Flags [.], ack 380, win 235, options [nop,nop,TS val 1256386 ecr 1301886], length 0
+14:04:09.985742 IP 192.168.56.102.40814 > 192.168.56.103.4567: Flags [.], ack 176, win 237, options [nop,nop,TS val 1306896 ecr 1256386], length 0
+14:04:09.986561 IP 192.168.56.103.4567 > 192.168.56.102.40814: Flags [.], ack 380, win 235, options [nop,nop,TS val 1258890 ecr 1301886], length 0
+
+2) 
+авторизируемся и заходим на сервер
+
+добавляем нового пользователя, без root прав, с правами sudo, заходим под ним, и устанавливаем nginx
+adduser robert
+usermod -aG sudo robert
+su - robert
+
+устанавливаем nginx
+sudo apt-get update
+sudo apt-get install nginx
+
+настраиваем файрвол
+sudo ufw app list
+sudo ufw allow 'Nginx HTTP'
+sudo ufw status
+
+проверяем статус nginx
+systemctl status nginx
+
+заходим в браузере
+http://192.168.56.103
+получаем приветсвие от nginx
+
+создаем простую страницу, содержащую 
+изображение, get и post формы,  файл для скачивания, 
+форму file upload, установку cookie (например, средствами JS)
+
+страница создана с помощью html, css, js
+
+код страницы
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script type="text/javascript">
+        function createCookie(cookieName, cookieValue, daysToExpire) {
+            var date = new Date();
+            date.setTime(date.getTime() + (daysToExpire * 24 * 60 * 60 * 1000));
+            document.cookie = cookieName + "=" + cookieValue + "; expires=" + date.toGMTString();
+        }
+
+        function accessCookie(cookieName) {
+            var name = cookieName + "=";
+            var allCookieArray = document.cookie.split(';');
+            for (var i = 0; i < allCookieArray.length; i++) {
+                var temp = allCookieArray[i].trim();
+                if (temp.indexOf(name) == 0)
+                    return temp.substring(name.length, temp.length);
+            }
+            return "";
+        }
+
+        function checkCookie() {
+            var date = accessCookie("post-str");
+            if (date != "")
+                document.getElementById('post-form-id').value = date;
+            else {
+                date = document.getElementById('post-form-id').value;
+                if (date != "" && date != null) {
+                    createCookie("post-str", date, 5);
+                }
+            }
+        }
+    </script>
+    <style type="text/css">
+        .topology {
+            position: absolute;
+            text-align: center;
+            top: 10%;
+            left: 50%;
+            color: white;
+            font-size: 60px;
+            transform: translate(-50%, -50%);
+        }
+
+        .content {
+            background-color: aqua;
+
+        }
+
+        .form {
+            position: absolute;
+            text-align: center;
+            top: 55%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Verdana, Geneva, sans-serif;
+            background: url(https://i.pinimg.com/originals/34/9b/d5/349bd54a6dfc29968aa19da64a2a2771.jpg
+            ) no-repeat center top / cover;
+            height: 50vh;
+        }
+    </style>
+</head>
+<body onload="checkCookie()">
+<div class="topology">
+    <label>Topology</label>
+</div>
+<div class="form">
+    <fieldset class="content">
+
+        <div class="">Загрузка научной работы</div>
+        <img src="https://www.eg.ru/upimg/photo/57972.jpg"
+             alt="">
+
+        <div class="post-form">
+            <form method="post">
+                <p>
+                    <label>Введите имя</label>
+                    <input id="post-form-id" type="text" name="post-str">
+                    <input type="button" value="Отправить"
+                           onclick="createCookie('post-str', document.getElementById('post-form-id').value, 5)">
+                </p>
+            </form>
+        </div>
+
+        <div class="get-form">
+            <form method="get">
+                <p>
+                    <label>Введите почту</label>
+                    <input id="get-form-id" type="text" name="get-str">
+                    <input type="button" value="Отправить">
+                </p>
+            </form>
+        </div>
+        <p class="download">
+            <a download="http://old.kpfu.ru/journals/izv_vuz/arch/2007/09/01-9.pdf"
+               href="http://old.kpfu.ru/journals/izv_vuz/arch/2007/09/01-9.pdf">Download Article About Poincare
+                Perelman's Theorem</a>
+        </p>
+        <form enctype="multipart/form-data" method="post">
+            <p>
+                <input type="file" name="file">
+                <input type="submit" value="Отправить">
+            </p>
+        </form>
+    </fieldset>
+</div>
+</body>
+</html>
+
+сохраняем страницу в документ с названием index.html
+размещаем в общей папке ос sf_Public, далее отправляем файл на сервер в директорию /var/www/html/
+c помощью scp
+
+выдаем права на файл 
+chmod 644 /var/www/html/index.html
+
+в браузере переходи по адресу
+
+http://192.168.56.103
+
+получаем страницу
+
+открываем консоль запускаем tcpdump -i eth1
+получаем
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on eth1, link-type EN10MB (Ethernet), capture size 262144 bytes
+22:15:19.274472 IP 192.168.56.102.60174 > 192.168.56.103.http: Flags [S], seq 1627418807, win 29200, options [mss 1460,sackOK,TS val 208151 ecr 0,nop,wscale 7], length 0
+22:15:19.274888 IP 192.168.56.103.http > 192.168.56.102.60174: Flags [S.], seq 950281351, ack 1627418808, win 28960, options [mss 1460,sackOK,TS val 153459 ecr 208151,nop,wscale 7], length 0
+22:15:19.274914 IP 192.168.56.102.60174 > 192.168.56.103.http: Flags [.], ack 1, win 229, options [nop,nop,TS val 208151 ecr 153459], length 0
+22:15:19.275088 IP 192.168.56.102.60174 > 192.168.56.103.http: Flags [P.], seq 1:371, ack 1, win 229, options [nop,nop,TS val 208151 ecr 153459], length 370: HTTP: GET / HTTP/1.1
+22:15:19.275318 IP 192.168.56.103.http > 192.168.56.102.60174: Flags [.], ack 371, win 235, options [nop,nop,TS val 153459 ecr 208151], length 0
+22:15:19.275723 IP 192.168.56.103.http > 192.168.56.102.60174: Flags [P.], seq 1:1721, ack 371, win 235, options [nop,nop,TS val 153459 ecr 208151], length 1720: HTTP: HTTP/1.1 200 OK
+22:15:19.275735 IP 192.168.56.102.60174 > 192.168.56.103.http: Flags [.], ack 1721, win 255, options [nop,nop,TS val 208151 ecr 153459], length 0
+22:15:20.337798 IP 192.168.56.102.60174 > 192.168.56.103.http: Flags [P.], seq 371:673, ack 1721, win 255, options [nop,nop,TS val 208417 ecr 153459], length 302: HTTP: GET /favicon.ico HTTP/1.1
+22:15:20.338571 IP 192.168.56.103.http > 192.168.56.102.60174: Flags [P.], seq 1721:2068, ack 673, win 243, options [nop,nop,TS val 153725 ecr 208417], length 347: HTTP: HTTP/1.1 404 Not Found
+22:15:20.338589 IP 192.168.56.102.60174 > 192.168.56.103.http: Flags [.], ack 2068, win 278, options [nop,nop,TS val 208417 ecr 153725], length 0
+22:15:20.339556 IP 192.168.56.102.60174 > 192.168.56.103.http: Flags [F.], seq 673, ack 2068, win 278, options [nop,nop,TS val 208417 ecr 153725], length 0
+22:15:20.340052 IP 192.168.56.103.http > 192.168.56.102.60174: Flags [F.], seq 2068, ack 674, win 243, options [nop,nop,TS val 153725 ecr 208417], length 0
+22:15:20.340098 IP 192.168.56.102.60174 > 192.168.56.103.http: Flags [.], ack 2069, win 278, options [nop,nop,TS val 208417 ecr 153725], length 0
+22:15:27.317394 IP 192.168.56.102.60188 > 192.168.56.103.http: Flags [S], seq 1645028289, win 29200, options [mss 1460,sackOK,TS val 210162 ecr 0,nop,wscale 7], length 0
+22:15:27.317763 IP 192.168.56.103.http > 192.168.56.102.60188: Flags [S.], seq 2129105371, ack 1645028290, win 28960, options [mss 1460,sackOK,TS val 155472 ecr 210162,nop,wscale 7], length 0
+22:15:27.317793 IP 192.168.56.102.60188 > 192.168.56.103.http: Flags [.], ack 1, win 229, options [nop,nop,TS val 210162 ecr 155472], length 0
+22:15:27.318321 IP 192.168.56.102.60188 > 192.168.56.103.http: Flags [P.], seq 1:491, ack 1, win 229, options [nop,nop,TS val 210162 ecr 155472], length 490: HTTP: POST / HTTP/1.1
+22:15:27.318671 IP 192.168.56.103.http > 192.168.56.102.60188: Flags [.], ack 491, win 235, options [nop,nop,TS val 155472 ecr 210162], length 0
+22:15:27.318937 IP 192.168.56.103.http > 192.168.56.102.60188: Flags [P.], seq 1:349, ack 491, win 235, options [nop,nop,TS val 155473 ecr 210162], length 348: HTTP: HTTP/1.1 405 Not Allowed
+22:15:27.318958 IP 192.168.56.102.60188 > 192.168.56.103.http: Flags [.], ack 349, win 237, options [nop,nop,TS val 210162 ecr 155473], length 0
+22:15:37.325754 IP 192.168.56.102.60188 > 192.168.56.103.http: Flags [.], ack 349, win 237, options [nop,nop,TS val 212664 ecr 155473], length 0
+22:15:37.326786 IP 192.168.56.103.http > 192.168.56.102.60188: Flags [.], ack 491, win 235, options [nop,nop,TS val 157978 ecr 210162], length 0
+22:15:47.340886 IP 192.168.56.102.60188 > 192.168.56.103.http: Flags [.], ack 349, win 237, options [nop,nop,TS val 215168 ecr 157978], length 0
+22:15:47.341247 IP 192.168.56.103.http > 192.168.56.102.60188: Flags [.], ack 491, win 235, options [nop,nop,TS val 160484 ecr 210162], length 0
+22:15:57.357393 IP 192.168.56.102.60188 > 192.168.56.103.http: Flags [.], ack 349, win 237, options [nop,nop,TS val 217672 ecr 160484], length 0
+22:15:57.358596 IP 192.168.56.103.http > 192.168.56.102.60188: Flags [.], ack 491, win 235, options [nop,nop,TS val 162991 ecr 210162], length 0
+22:16:07.372808 IP 192.168.56.102.60188 > 192.168.56.103.http: Flags [.], ack 349, win 237, options [nop,nop,TS val 220176 ecr 162991], length 0
+22:16:07.373676 IP 192.168.56.103.http > 192.168.56.102.60188: Flags [.], ack 491, win 235, options [nop,nop,TS val 165498 ecr 210162], length 0
+22:16:12.380982 ARP, Request who-has 192.168.56.103 tell 192.168.56.102, length 28
+22:16:12.381795 ARP, Reply 192.168.56.103 is-at 08:00:27:cd:2a:92 (oui Unknown), length 46
+22:16:17.389319 IP 192.168.56.102.60188 > 192.168.56.103.http: Flags [.], ack 349, win 237, options [nop,nop,TS val 222680 ecr 165498], length 0
+22:16:17.390212 IP 192.168.56.103.http > 192.168.56.102.60188: Flags [.], ack 491, win 235, options [nop,nop,TS val 168005 ecr 210162], length 0
+22:16:22.388357 ARP, Request who-has 192.168.56.102 tell 192.168.56.103, length 46
+22:16:22.388399 ARP, Reply 192.168.56.102 is-at 08:00:27:3a:35:aa (oui Unknown), length 28
+22:16:27.405325 IP 192.168.56.102.60188 > 192.168.56.103.http: Flags [.], ack 349, win 237, options [nop,nop,TS val 225184 ecr 168005], length 0
+22:16:27.406218 IP 192.168.56.103.http > 192.168.56.102.60188: Flags [.], ack 491, win 235, options [nop,nop,TS val 170511 ecr 210162], length 0
+22:16:32.296342 IP 192.168.56.103.http > 192.168.56.102.60188: Flags [F.], seq 349, ack 491, win 235, options [nop,nop,TS val 171735 ecr 210162], length 0
+22:16:32.297313 IP 192.168.56.102.60188 > 192.168.56.103.http: Flags [F.], seq 491, ack 350, win 237, options [nop,nop,TS val 226406 ecr 171735], length 0
+22:16:32.298215 IP 192.168.56.103.http > 192.168.56.102.60188: Flags [.], ack 492, win 235, options [nop,nop,TS val 171735 ecr 226406], length 0
+22:18:56.165480 IP 192.168.56.102.bootpc > 192.168.56.100.bootps: BOOTP/DHCP, Request from 08:00:27:3a:35:aa (oui Unknown), length 300
+22:18:56.299181 IP 192.168.56.100.bootps > 192.168.56.102.bootpc: BOOTP/DHCP, Reply, length 548
+22:19:01.180966 ARP, Request who-has 192.168.56.100 tell 192.168.56.102, length 28
+22:19:01.183257 ARP, Reply 192.168.56.100 is-at 08:00:27:4d:43:2a (oui Unknown), length 46
+22:20:00.008500 IP 192.168.56.102.60198 > 192.168.56.103.http: Flags [S], seq 1373786535, win 29200, options [mss 1460,sackOK,TS val 278334 ecr 0,nop,wscale 7], length 0
+22:20:00.009280 IP 192.168.56.103.http > 192.168.56.102.60198: Flags [S.], seq 388866502, ack 1373786536, win 28960, options [mss 1460,sackOK,TS val 223634 ecr 278334,nop,wscale 7], length 0
+22:20:00.009315 IP 192.168.56.102.60198 > 192.168.56.103.http: Flags [.], ack 1, win 229, options [nop,nop,TS val 278335 ecr 223634], length 0
+22:20:00.009761 IP 192.168.56.102.60198 > 192.168.56.103.http: Flags [P.], seq 1:436, ack 1, win 229, options [nop,nop,TS val 278335 ecr 223634], length 435: HTTP: GET /?get-str=sasha_salenko%40mail.ru HTTP/1.1
+22:20:00.011951 IP 192.168.56.103.http > 192.168.56.102.60198: Flags [.], ack 436, win 235, options [nop,nop,TS val 223634 ecr 278335], length 0
+22:20:00.012568 IP 192.168.56.103.http > 192.168.56.102.60198: Flags [P.], seq 1:1721, ack 436, win 235, options [nop,nop,TS val 223634 ecr 278335], length 1720: HTTP: HTTP/1.1 200 OK
+22:20:00.012589 IP 192.168.56.102.60198 > 192.168.56.103.http: Flags [.], ack 1721, win 255, options [nop,nop,TS val 278335 ecr 223634], length 0
+22:20:05.020610 ARP, Request who-has 192.168.56.102 tell 192.168.56.103, length 46
+22:20:05.020683 ARP, Reply 192.168.56.102 is-at 08:00:27:3a:35:aa (oui Unknown), length 28
+22:20:10.028991 IP 192.168.56.102.60198 > 192.168.56.103.http: Flags [.], ack 1721, win 255, options [nop,nop,TS val 280840 ecr 223634], length 0
+22:20:10.030055 IP 192.168.56.103.http > 192.168.56.102.60198: Flags [.], ack 436, win 235, options [nop,nop,TS val 226141 ecr 278335], length 0
+22:20:15.037468 ARP, Request who-has 192.168.56.103 tell 192.168.56.102, length 28
+22:20:15.038220 ARP, Reply 192.168.56.103 is-at 08:00:27:cd:2a:92 (oui Unknown), length 46
+22:20:15.766905 IP 192.168.56.102.60198 > 192.168.56.103.http: Flags [P.], seq 436:3144, ack 1721, win 255, options [nop,nop,TS val 282274 ecr 226141], length 2708: HTTP: POST /?get-str=sasha_salenko%40mail.ru HTTP/1.1
+22:20:15.767369 IP 192.168.56.103.http > 192.168.56.102.60198: Flags [.], ack 3144, win 277, options [nop,nop,TS val 227577 ecr 282274], length 0
+22:20:15.768080 IP 192.168.56.103.http > 192.168.56.102.60198: Flags [P.], seq 1721:2069, ack 3144, win 277, options [nop,nop,TS val 227577 ecr 282274], length 348: HTTP: HTTP/1.1 405 Not Allowed
+22:20:15.768326 IP 192.168.56.102.60198 > 192.168.56.103.http: Flags [.], ack 2069, win 278, options [nop,nop,TS val 282274 ecr 227577], length 0
+22:20:21.153642 IP 192.168.56.102.60198 > 192.168.56.103.http: Flags [F.], seq 3144, ack 2069, win 278, options [nop,nop,TS val 283621 ecr 227577], length 0
+22:20:21.154050 IP 192.168.56.103.http > 192.168.56.102.60198: Flags [F.], seq 2069, ack 3145, win 277, options [nop,nop,TS val 228925 ecr 283621], length 0
+22:20:21.154067 IP 192.168.56.102.60198 > 192.168.56.103.http: Flags [.], ack 2070, win 278, options [nop,nop,TS val 283621 ecr 228925], length 0
+
+
+
+открываем консоль запускаем sudo ngrep -d eth1
+получаем	
+
+interface: eth1 (192.168.56.0/255.255.255.0)
+#
+U 192.168.56.102:68 -> 192.168.56.100:67
+  ....4.y.......8f..............':5..........................................
+  ...........................................................................
+  ...........................................................................
+  ...........c.Sc5....user1-VirtualBox7.......w.,/.y*y.!.*...................
+#
+U 192.168.56.100:67 -> 192.168.56.102:68
+  ....4.y.......8f..8f..........':5..........................................
+  ...........................................................................
+  ...........................................................................
+  ...........c.Sc6...8d5........3....X.......................................
+  ...........................................................................
+  ...........................................................................
+  ...........................................................................
+  .......................                                                    
+#
+U 192.168.56.1:138 -> 192.168.56.255:138
+  ...7..8....... EEEFFDELFEEPFACNFFDDECFGDBEMFCCA. FHEPFCELEHFCEPFFFACACACACA
+  CACABN..SMB%..............................!...................!.V.........2
+  .\MAILSLOT\BROWSE.......DESKTOP-U3BV1LR.........U..                        
+####
+T 192.168.56.102:60146 -> 192.168.56.103:80 [AP]
+  GET / HTTP/1.1..Host: 192.168.56.103..User-Agent: Mozilla/5.0 (X11; Ubuntu;
+   Linux x86_64; rv:66.0) Gecko/20100101 Firefox/66.0..Accept: text/html,appl
+  ication/xhtml+xml,application/xml;q=0.9,*/*;q=0.8..Accept-Language: ru-RU,r
+  u;q=0.8,en-US;q=0.5,en;q=0.3..Accept-Encoding: gzip, deflate..Connection: k
+  eep-alive..Cookie: post-str=alexandr..Upgrade-Insecure-Requests: 1..If-Modi
+  fied-Since: Wed, 12 Feb 2020 21:39:22 GMT..If-None-Match: W/"5e44708a-f12".
+  ...                                                                        
+##
+T 192.168.56.103:80 -> 192.168.56.102:60146 [AP]
+  HTTP/1.1 304 Not Modified..Server: nginx/1.10.3 (Ubuntu)..Date: Thu, 13 Feb
+   2020 16:12:09 GMT..Last-Modified: Wed, 12 Feb 2020 21:39:22 GMT..Connectio
+  n: keep-alive..ETag: "5e44708a-f12"....                                    
+######
+T 192.168.56.102:60146 -> 192.168.56.103:80 [AP]
+  POST / HTTP/1.1..Host: 192.168.56.103..User-Agent: Mozilla/5.0 (X11; Ubuntu
+  ; Linux x86_64; rv:66.0) Gecko/20100101 Firefox/66.0..Accept: text/html,app
+  lication/xhtml+xml,application/xml;q=0.9,*/*;q=0.8..Accept-Language: ru-RU,
+  ru;q=0.8,en-US;q=0.5,en;q=0.3..Accept-Encoding: gzip, deflate..Referer: htt
+  p://192.168.56.103/..Content-Type: application/x-www-form-urlencoded..Conte
+  nt-Length: 17..Connection: keep-alive..Cookie: post-str=alexandr..Upgrade-I
+  nsecure-Requests: 1....post-str=alexandr                                   
+##
+T 192.168.56.103:80 -> 192.168.56.102:60146 [AP]
+  HTTP/1.1 405 Not Allowed..Server: nginx/1.10.3 (Ubuntu)..Date: Thu, 13 Feb 
+  2020 16:12:30 GMT..Content-Type: text/html..Content-Length: 182..Connection
+  : keep-alive....<html>..<head><title>405 Not Allowed</title></head>..<body 
+  bgcolor="white">..<center><h1>405 Not Allowed</h1></center>..<hr><center>ng
+  inx/1.10.3 (Ubuntu)</center>..</body>..</html>..                           
+####
+T 192.168.56.102:60146 -> 192.168.56.103:80 [AP]
+  GET /?get-str=sasha_salenko%40mail.ru HTTP/1.1..Host: 192.168.56.103..User-
+  Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:66.0) Gecko/20100101 Fire
+  fox/66.0..Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*
+  ;q=0.8..Accept-Language: ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3..Accept-Encodi
+  ng: gzip, deflate..Referer: http://192.168.56.103/..Connection: keep-alive.
+  .Cookie: post-str=alexandr..Upgrade-Insecure-Requests: 1....               
+##
+T 192.168.56.103:80 -> 192.168.56.102:60146 [AP]
+  HTTP/1.1 200 OK..Server: nginx/1.10.3 (Ubuntu)..Date: Thu, 13 Feb 2020 16:1
+  2:45 GMT..Content-Type: text/html..Last-Modified: Wed, 12 Feb 2020 21:39:22
+   GMT..Transfer-Encoding: chunked..Connection: keep-alive..ETag: W/"5e44708a
+  -f12"..Content-Encoding: gzip....5aa.............W...D....w.Z.....]6.M.Y...
+  ..Z.P.!.&.8...c...f.R....HH.p.3.BEA....F.3.7..V.O.<...3..........=...]..H.]
+  ...H..gc....a...........J..[.N>...=fMs-..D&R...u..r1..O4....-.N....i1[i@-A.
+  {...x.Q.nKy.Y.3..4b..x.HE..>]..y.4..u...a...s.`.fdLbvB..k.{....6.3.....Y..%
+  7.....w...<...c...w.4J/.X...(..B.*......8wH.1!5.....>.|...g...\.....-.y,Mo.
+  ..HI.4n@."...B.*o)E. .7m..Dp..:.j..HE:...T.......,....n.X.YyO.(..M.../l.%j.
+  b......J.<.......v..PtW.U.qTLg*&F(..iA9.......o.Pp..e.Ucs....y......En..V"S
+  ...V....qC...em0..u..w...}.....2*._Q..[]{.....e5#.H&R..1.7....2'.T.......B1
+  ..gB.q.".k...AX.4T.A.).iy..Y..NQ......`....i.l..,{m~.]..lD.4."[#.ka..>.-.8.
+  ..5.yDv...........=..jDNB.vT c..~.FP....B.h.b...y.@_...l.|.ilD4.9@....S....
+  .b.Wb._e..]eLS...V.?.7.\.....T..6.......[L'...../...4.b1"...iL..=..9.)...2.
+  .....#.)...N...p;.1.f.......*R..=g8u......`.....;....tg...=.Kw..v.G.l.,....
+  eO....2X..'q.>...n..,41:.k.W..9.......kH.....[..i.....'h..d.nU...N..5..7*.)
+  <.&..v!.p&|h.*.e4......u...?..Y>^.......H.W.ly.|....w.|..?...O..V.#{.s..$U.
+  ...trrb...2'K`.IB..38...........h......W..!<....o..rq[{..t...Ub.X....?._...
+  /.O..$......u*......q.i..S{.....VM-..m...no.Q.*..i...-.....[.O.....9.[~.f..
+  ...{.{..g.F.........jv.s..E..P.... .5...Y9..np......O......Sw...}..._....7x
+  ...]..[wC...u..-.....v.*.}yb.M..K...R..PL....$.0Q.I................~......N
+  oh'~....b..Qxt.DEn).=.HnM%....c.*......L1..x+%..I."..5....1.......eB..*m"..
+  .....*..pk.8..U.n.kX*.....#....-.-.....W.{....u..1../.....+......0....     
+######
+T 192.168.56.102:60146 -> 192.168.56.103:80 [AP]
+  POST /?get-str=sasha_salenko%40mail.ru HTTP/1.1..Host: 192.168.56.103..User
+  -Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:66.0) Gecko/20100101 Fir
+  efox/66.0..Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/
+  *;q=0.8..Accept-Language: ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3..Accept-Encod
+  ing: gzip, deflate..Referer: http://192.168.56.103/?get-str=sasha_salenko%4
+  0mail.ru..Content-Type: multipart/form-data; boundary=---------------------
+  ------70205485710024689911195733293..Content-Length: 2116..Connection: keep
+  -alive..Cookie: post-str=alexandr..Upgrade-Insecure-Requests: 1....--------
+  ---------------------70205485710024689911195733293..Content-Disposition: fo
+  rm-data; name="file"; filename="hello.txt"..Content-Type: text/plain....\\\
+  \\.\etc\acpi\ \etc\alternatives\ \etc\apm\ \etc\apparmor\ \etc\apparmor.d\ 
+  \etc\apport\ \etc\apt\ \etc\aptdaemon\ \etc\at-spi2\ \etc\avahi\ \etc\bash_
+  completion.d\ \etc\bluetooth\ \etc\brltty\ \etc\ca-certificates\ \etc\calen
+  dar\ \etc\chatscripts\ \etc\compizconfig\ \etc\console-setup\ \etc\cracklib
+  \ \etc\cron.d\ \etc\cron.daily\ \etc\cron.hourly\ \etc\cron.monthly\ \etc\c
+  ron.weekly\ \etc\cups\ \etc\cupshelpers\ \etc\dbus-1\ \etc\dconf\ \etc\defa
+  ult\ \etc\depmod.d\ \etc\dhcp\ \etc\dictionaries-common\ \etc\dnsmasq.d\ \e
+  tc\doc-base\ \etc\dpkg\ \etc\emacs\ \etc\firefox\ \etc\fonts\ \etc\fstab.d\
+   \etc\gconf\ \etc\gdb\ \etc\ghostscript\ \etc\gnome\ \etc\gnome-app-install
+  \ \etc\groff\ \etc\grub.d\ \etc\gtk-2.0\ \etc\gtk-3.0\ \etc\hp\ \etc\ifplug
+  d\ \etc\init\ \etc\init.d\ \etc\initramfs-tools\ \etc\insserv\ \etc\insserv
+  .conf.d\ \etc\iproute2\ \etc\kbd\ \etc\kernel\ \etc\ldap\ \etc\ld.so.conf.d
+  \ \etc\libnl-3\ \etc\libpaper.d\ \etc\libreoffice\ \etc\lightdm\ \etc\logch
+  eck\ \etc\logrotate.d\ \etc\modprobe.d\ \etc\modules-load.d\ \etc\network\ 
+  \etc\NetworkManager\ \etc\newt\ \etc\obex-data-server\ \etc\openal\ \etc\op
+  t\ \etc\pam.d\ \etc\pcmcia\ \etc\perl\ \etc\pki\ \etc\pm\ \etc\polkit-1\ \e
+  tc\ppp\ \etc\profile.d\ \etc\pulse\ \etc\python\ \etc\python2.7\ \etc\pytho
+  n3\ \etc\python3.4\ \etc\rc0.d\ \etc\rc1.d\ \etc\rc2.d\ \etc\rc3.d\ \etc\rc
+  4.d\ \etc\rc5.d\ \etc\rc6.d\ \etc\rcS.d\ \etc\resolvconf\ \etc\rsyslog.d\ \
+  etc\samba\ \etc\sane.d\ \etc\security\ \etc\selinux\ \etc\sensors.d\ \etc\s
+  gml\ \etc\signon-ui\ \etc\skel\ \etc\speech-dispatcher\ \etc\ssh\ \etc\ssl\
+   \etc\sudoers.d\ \etc\sysctl.d\ \etc\systemd\ \etc\terminfo\ \etc\thermald\
+   \etc\thunderbird\ \etc\timidity\ \etc\udev\ \etc\udisks2\ \etc\ufw\ \etc\u
+  pdate-manager\ \etc\update-motd.d\ \etc\update-notifier\ \etc\UPower\ \etc\
+  usb_modeswitch.d\ \etc\vim\ \etc\wildmidi\ \etc\wpa_supplicant\ \etc\X11\ \
+  etc\xdg\ \etc\xml\...-----------------------------7020548571002468991119573
+  3293--..                                                                   
+##
+T 192.168.56.103:80 -> 192.168.56.102:60146 [AP]
+  HTTP/1.1 405 Not Allowed..Server: nginx/1.10.3 (Ubuntu)..Date: Thu, 13 Feb 
+  2020 16:13:09 GMT..Content-Type: text/html..Content-Length: 182..Connection
+  : keep-alive....<html>..<head><title>405 Not Allowed</title></head>..<body 
+  bgcolor="white">..<center><h1>405 Not Allowed</h1></center>..<hr><center>ng
+  inx/1.10.3 (Ubuntu)</center>..</body>..</html>..
+
+Графические клиенты, Iptables, ssh туннель
+
+Задание
+
+1) Установить на сервере MySql (без Docker) или postgreSQL.  
+2) На машине WORKSTATION запустить графический клиент (MySql Workbench или DBeaver) и проверить доступ. 
+3) При работе с виртуальной машиной из Windows можно воспользоваться xming.
+4) Средствами iptables закрыть доступ (закрыть на сервере порт 3306 для MySql или 5432 для Postgres), проверить, что доступа нет. 
+5) Настроить ssh туннель для проброса порта  БД с сервера на WORKSTATION.
+6) Эту часть задания можно считать выполненной, если удалось подключиться клиентом к БД, 
+7) затем закрыть порт и при следующей попытки подключиться получить ошибку подключения. 
+8) После настройки ssh-туннеля доступ должен появиться, при выключении туннеля - пропадать.
+
+Решение
+
+1)server
+	sudo apt-get update
+	sudo apt-get upgrade
+	sudo apt-get install mysql-server
+	sudo mysql_secure_installation
+	CREATE USER 'server'@'localhost' IDENTIFIED BY 'Server_1373';
+	GRANT ALL PRIVILEGES ON *.* TO 'server'@'localhost' WITH GRANT OPTION;
+	CREATE DATABASE ttschool;
+	GRANT ALL ON ttschool.* TO 'server' IDENTIFIED BY 'Server_1373';
+	QUIT;
+	mysql -u test -p ttschool
+	USE ttschool;
+Server_1373
+
+2) workstation  
+    sudo apt update
+    sudo apt install mysql-workbench
+   ???????????????????? Нет доступа 
+
+3)
+
+
+
